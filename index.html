@@ -55,7 +55,7 @@
         }
 
         .input-container {
-            padding: 8px;
+            padding: 6px 8px;
             background: #fff;
             border-bottom: 1px solid var(--border-color);
             position: sticky;
@@ -65,7 +65,7 @@
 
         #task-input {
             width: 100%;
-            padding: 6px 10px;
+            padding: 5px 10px;
             border: 1px solid #ccc;
             box-sizing: border-box;
             font-size: 13px;
@@ -101,11 +101,11 @@
         .task-item {
             display: flex;
             align-items: center;
-            padding: 4px 10px;
+            padding: 2px 10px; /* Even tighter line height */
             border-bottom: 1px solid #f2f2f2;
             background: white;
             font-size: 12px;
-            line-height: 1.2;
+            line-height: 1.1;
             cursor: grab;
         }
 
@@ -122,8 +122,8 @@
         }
 
         .task-item .checkbox { 
-            width: 12px; 
-            height: 12px; 
+            width: 11px; 
+            height: 11px; 
             border: 1px solid #999; 
             margin-right: 10px; 
             cursor: pointer;
@@ -134,7 +134,7 @@
             font-size: 14px;
             margin-left: 8px;
             cursor: pointer;
-            opacity: 0.15;
+            opacity: 0.1;
             user-select: none;
         }
 
@@ -144,7 +144,7 @@
         #completed .content { text-decoration: line-through; color: #aaa; }
         #completed .checkbox { background-color: var(--outlook-blue); border-color: var(--outlook-blue); position: relative; }
         #completed .checkbox::after {
-            content: '✓'; color: white; font-size: 9px; position: absolute; top: -1px; left: 1px;
+            content: '✓'; color: white; font-size: 9px; position: absolute; top: -2px; left: 0px;
         }
 
         .clear-btn {
@@ -198,20 +198,25 @@
 </div>
 
 <script>
+    const STORAGE_KEY = 'ToDoListClassic_PROD'; // PERMANENT KEY
     const input = document.getElementById('task-input');
     const listIds = ['no-date', 'today', 'tomorrow', 'next-week', 'completed'];
 
     listIds.forEach(id => {
         new Sortable(document.getElementById(id), {
             group: 'tasks',
-            animation: 120,
+            animation: 100,
             onEnd: () => saveToStorage()
         });
     });
 
     window.onload = () => {
-        const savedData = JSON.parse(localStorage.getItem('ToDoListClassic_V4')) || [];
-        savedData.forEach(task => addTaskToUI(task.text, task.listId, task.id, task.isPriority));
+        // This will try to grab V4 or V3 data first so you don't lose current tasks
+        const legacyData = JSON.parse(localStorage.getItem('ToDoListClassic_V4')) || JSON.parse(localStorage.getItem('ToDoListClassic_V3')) || [];
+        const prodData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || legacyData;
+        
+        prodData.forEach(task => addTaskToUI(task.text, task.listId, task.id, task.isPriority));
+        saveToStorage(); // Migration to PROD key
     };
 
     input.addEventListener('keypress', (e) => {
@@ -255,7 +260,7 @@
 
     function clearCompleted(e) {
         e.stopPropagation();
-        if(confirm("Clear all completed tasks?")) {
+        if(confirm("Clear completed tasks?")) {
             document.getElementById('completed').innerHTML = '';
             saveToStorage();
         }
@@ -277,7 +282,7 @@
                 });
             });
         });
-        localStorage.setItem('ToDoListClassic_V4', JSON.stringify(allTasks));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allTasks));
     }
 </script>
 </body>
