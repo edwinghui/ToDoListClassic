@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Task Flow</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>">
+    
+    <link rel="manifest" href="data:application/manifest+json,{'name':'TaskFlow','short_name':'Tasks','start_url':'.','display':'standalone','background_color':'#ffffff','theme_color':'#f3f3f3'}">
+
+    <style>
+        :root {
+            --header-bg: #e1e1e1;
+            --border-color: #d1d1d1;
+            --text-main: #333;
+            --flag-red: #d9534f;
+            --app-width: 450px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        #app-container {
+            width: 100%;
+            max-width: var(--app-width);
+            background: white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+        }
+
+        .input-container {
+            padding: 12px;
+            background: #fff;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        #task-input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 14px;
+            outline: none;
+            border-radius: 4px;
+        }
+
+        .group-header {
+            background-color: var(--header-bg);
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #444;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+        }
+
+        .group-header::before { content: '◢'; font-size: 8px; margin-right: 8px; }
+
+        .task-list { min-height: 30px; background: #fff; padding-bottom: 15px; }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            border-bottom: 1px solid #f2f2f2;
+            background: white;
+            font-size: 13px;
+            cursor: grab;
+        }
+
+        .task-item:active { cursor: grabbing; }
+        .task-item .content { flex-grow: 1; }
+        .task-item .flag { color: var(--flag-red); font-size: 14px; margin-left: 10px; opacity: 0.8; }
+        .task-item .checkbox { width: 14px; height: 14px; border: 1px solid #999; margin-right: 12px; cursor: pointer; }
+
+        .dragging { opacity: 0.3; }
+        .drag-over { background-color: #f8f9fa !important; border-bottom: 2px solid #4a90e2; }
+
+        @media (max-width: 500px) {
+            body { background-color: white; }
+            #app-container { border: none; box-shadow: none; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div class="input-container">
+        <input type="text" id="task-input" placeholder="Type a task and hit Enter...">
+    </div>
+
+    <div class="group-header">No Date</div>
+    <div class="task-list" id="no-date"></div>
+
+    <div class="group-header">Today</div>
+    <div class="task-list" id="today"></div>
+
+    <div class="group-header">Tomorrow</div>
+    <div class="task-list" id="tomorrow"></div>
+
+    <div class="group-header">Next Week</div>
+    <div class="task-list" id="next-week"></div>
+</div>
+
+<script>
+    const input = document.getElementById('task-input');
+    const lists = document.querySelectorAll('.task-list');
+
+    // Persistence: Load on start
+    window.onload = () => {
+        const savedData = JSON.parse(localStorage.getItem('myTasks')) || [];
+        savedData.forEach(task => addTaskToUI(task.text, task.listId, task.id));
+    };
+
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && input.value.trim()) {
+            const taskId = 'task-' + Date.now();
+            addTaskToUI(input.value.trim(), 'today', taskId);
+            input.value = '';
+            saveToStorage();
+        }
+    });
+
+    function addTaskToUI(text, listId, taskId) {
+        const list = document.getElementById(listId);
+        const item = document.createElement('div');
+        item.className = 'task-item';
+        item.draggable = true;
+        item.id = taskId;
+        
+        item.innerHTML = `
+            <div class="checkbox" onclick="completeTask('${taskId}')"></div>
+            <div class="content">${text}</div>
+            <div class="flag">🚩</div>
+        `;
+
+        item.addEventListener('dragstart', (e) => {
+            item.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', item.id);
+        });
+
+        item.addEventListener('dragend', () => item.classList.remove('dragging'));
+        list.appendChild(item);
+    }
+
+    function completeTask(taskId) {
+        document.getElementById(taskId).remove();
+        saveToStorage();
+    }
+
+    function saveToStorage() {
+        const allTasks = [];
+        lists.forEach(list => {
+            list.querySelectorAll('.task-item').forEach(item => {
+                allTasks.push({
+                    id: item.id,
+                    text: item.querySelector('.content').innerText,
+                    listId: list.id
+                });
+            });
+        });
+        localStorage.setItem('myTasks', JSON.stringify(allTasks));
+    }
+
+    lists.forEach(list => {
+        list.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            list.classList.add('drag-over');
+        });
+        list.addEventListener('dragleave', () => list.classList.remove('drag-over'));
+        list.addEventListener('drop', (e) => {
+            e.preventDefault();
+            list.classList.remove('drag-over');
+            const id = e.dataTransfer.getData('text/plain');
+            const draggedElement = document.getElementById(id);
+            if (draggedElement) {
+                list.appendChild(draggedElement);
+                saveToStorage();
+            }
+        });
+    });
+</script>
+
+</body>
+</html>
