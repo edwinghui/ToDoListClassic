@@ -5,7 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ToDoListClassic</title>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🚩</text></svg>">
+    
+    <link rel="manifest" href="data:application/manifest+json,{
+        'name': 'ToDoListClassic',
+        'short_name': 'Tasks',
+        'start_url': '.',
+        'display': 'standalone',
+        'background_color': '#ffffff',
+        'theme_color': '#e1e1e1',
+        'icons': [{
+            'src': 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22white%22/><text y=%22.85em%22 x=%225%22 font-size=%2285%22>🚩</text></svg>',
+            'sizes': '512x512',
+            'type': 'image/svg+xml',
+            'purpose': 'any maskable'
+        }]
+    }">
+
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
     <style>
@@ -15,6 +31,7 @@
             --text-main: #333;
             --app-width: 450px;
             --outlook-blue: #4a90e2;
+            --priority-red: #d9534f;
         }
 
         body {
@@ -55,7 +72,6 @@
             outline: none;
         }
 
-        /* Tight Headers */
         .group-header {
             background-color: var(--header-bg);
             padding: 3px 10px;
@@ -80,22 +96,19 @@
         .collapsed .group-header::before { transform: rotate(-90deg); }
         .collapsed .task-list { display: none; }
 
-        .task-list { min-height: 5px; background: #fff; }
+        .task-list { min-height: 2px; background: #fff; }
 
-        /* Ultra-tight Task Items */
         .task-item {
             display: flex;
             align-items: center;
-            padding: 4px 10px; /* Tighter padding */
+            padding: 4px 10px;
             border-bottom: 1px solid #f2f2f2;
             background: white;
-            font-size: 12px; /* Smaller font */
-            line-height: 1.2; /* Tighter line height */
+            font-size: 12px;
+            line-height: 1.2;
             cursor: grab;
         }
 
-        .task-item:active { cursor: grabbing; }
-        
         .task-item .content { 
             flex-grow: 1; 
             white-space: nowrap; 
@@ -103,9 +116,8 @@
             text-overflow: ellipsis;
         }
 
-        /* Priority Red Style */
         .task-item.is-priority .content {
-            color: #d9534f;
+            color: var(--priority-red);
             font-weight: bold;
         }
 
@@ -118,25 +130,29 @@
             flex-shrink: 0;
         }
 
-        /* Priority Toggle Button */
         .priority-btn {
-            font-size: 16px;
+            font-size: 14px;
             margin-left: 8px;
             cursor: pointer;
-            opacity: 0.2;
-            transition: opacity 0.2s;
+            opacity: 0.15;
             user-select: none;
-            line-height: 1;
         }
 
-        .task-item:hover .priority-btn { opacity: 0.6; }
-        .task-item.is-priority .priority-btn { opacity: 1; color: #d9534f; }
+        .task-item:hover .priority-btn { opacity: 0.5; }
+        .task-item.is-priority .priority-btn { opacity: 1; color: var(--priority-red); font-weight: bold; }
 
-        /* Completed Styles */
         #completed .content { text-decoration: line-through; color: #aaa; }
         #completed .checkbox { background-color: var(--outlook-blue); border-color: var(--outlook-blue); position: relative; }
         #completed .checkbox::after {
             content: '✓'; color: white; font-size: 9px; position: absolute; top: -1px; left: 1px;
+        }
+
+        .clear-btn {
+            margin-left: auto;
+            font-size: 9px;
+            color: #d9534f;
+            cursor: pointer;
+            padding: 0 5px;
         }
 
         @media (max-width: 500px) {
@@ -149,7 +165,7 @@
 
 <div id="app-container">
     <div class="input-container">
-        <input type="text" id="task-input" placeholder="Enter new task..." autocomplete="off">
+        <input type="text" id="task-input" placeholder="New task..." autocomplete="off">
     </div>
 
     <div class="section" id="sec-no-date">
@@ -173,7 +189,10 @@
     </div>
 
     <div class="section" id="sec-completed">
-        <div class="group-header" onclick="toggleSection('sec-completed')">Completed</div>
+        <div class="group-header" onclick="toggleSection('sec-completed')">
+            Completed 
+            <span class="clear-btn" onclick="clearCompleted(event)">[Clear]</span>
+        </div>
         <div class="task-list" id="completed"></div>
     </div>
 </div>
@@ -191,7 +210,7 @@
     });
 
     window.onload = () => {
-        const savedData = JSON.parse(localStorage.getItem('ToDoListClassic_V3')) || [];
+        const savedData = JSON.parse(localStorage.getItem('ToDoListClassic_V4')) || [];
         savedData.forEach(task => addTaskToUI(task.text, task.listId, task.id, task.isPriority));
     };
 
@@ -209,13 +228,11 @@
         const item = document.createElement('div');
         item.className = 'task-item' + (isPriority ? ' is-priority' : '');
         item.id = taskId;
-        
         item.innerHTML = `
             <div class="checkbox" onclick="handleCheck('${taskId}')"></div>
             <div class="content">${text}</div>
             <div class="priority-btn" onclick="togglePriority('${taskId}')">!</div>
         `;
-
         list.appendChild(item);
     }
 
@@ -236,6 +253,14 @@
         saveToStorage();
     }
 
+    function clearCompleted(e) {
+        e.stopPropagation();
+        if(confirm("Clear all completed tasks?")) {
+            document.getElementById('completed').innerHTML = '';
+            saveToStorage();
+        }
+    }
+
     function toggleSection(sectionId) {
         document.getElementById(sectionId).classList.toggle('collapsed');
     }
@@ -252,7 +277,7 @@
                 });
             });
         });
-        localStorage.setItem('ToDoListClassic_V3', JSON.stringify(allTasks));
+        localStorage.setItem('ToDoListClassic_V4', JSON.stringify(allTasks));
     }
 </script>
 </body>
