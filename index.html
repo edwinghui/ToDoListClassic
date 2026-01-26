@@ -101,7 +101,7 @@
         .task-item {
             display: flex;
             align-items: center;
-            padding: 2px 10px; /* Even tighter line height */
+            padding: 2px 10px;
             border-bottom: 1px solid #f2f2f2;
             background: white;
             font-size: 12px;
@@ -114,6 +114,15 @@
             white-space: nowrap; 
             overflow: hidden; 
             text-overflow: ellipsis;
+            padding: 4px 0;
+            outline: none;
+        }
+
+        /* Allow text wrap while editing so you can see the whole name */
+        .task-item .content:focus {
+            white-space: normal;
+            background: #f9f9f9;
+            cursor: text;
         }
 
         .task-item.is-priority .content {
@@ -198,7 +207,7 @@
 </div>
 
 <script>
-    const STORAGE_KEY = 'ToDoListClassic_PROD'; // PERMANENT KEY
+    const STORAGE_KEY = 'ToDoListClassic_PROD';
     const input = document.getElementById('task-input');
     const listIds = ['no-date', 'today', 'tomorrow', 'next-week', 'completed'];
 
@@ -206,17 +215,19 @@
         new Sortable(document.getElementById(id), {
             group: 'tasks',
             animation: 100,
+            handle: '.task-item', // Dragging is handled by the item
+            filter: '.content', // Prevent dragging when clicking the editable text
+            preventOnFilter: false,
             onEnd: () => saveToStorage()
         });
     });
 
     window.onload = () => {
-        // This will try to grab V4 or V3 data first so you don't lose current tasks
         const legacyData = JSON.parse(localStorage.getItem('ToDoListClassic_V4')) || JSON.parse(localStorage.getItem('ToDoListClassic_V3')) || [];
         const prodData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || legacyData;
         
         prodData.forEach(task => addTaskToUI(task.text, task.listId, task.id, task.isPriority));
-        saveToStorage(); // Migration to PROD key
+        saveToStorage(); 
     };
 
     input.addEventListener('keypress', (e) => {
@@ -233,12 +244,22 @@
         const item = document.createElement('div');
         item.className = 'task-item' + (isPriority ? ' is-priority' : '');
         item.id = taskId;
+        
+        // added contenteditable="true" and onblur="saveToStorage()"
         item.innerHTML = `
             <div class="checkbox" onclick="handleCheck('${taskId}')"></div>
-            <div class="content">${text}</div>
+            <div class="content" contenteditable="true" onblur="saveToStorage()" onkeypress="handleRenameEnter(event)">${text}</div>
             <div class="priority-btn" onclick="togglePriority('${taskId}')">!</div>
         `;
         list.appendChild(item);
+    }
+
+    // Prevents adding a new line when pressing Enter while editing a task
+    function handleRenameEnter(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.target.blur(); // Trigger the save via blur
+        }
     }
 
     function togglePriority(taskId) {
@@ -273,14 +294,17 @@
     function saveToStorage() {
         const allTasks = [];
         listIds.forEach(listId => {
-            document.querySelectorAll(`#${listId} .task-item`).forEach(item => {
-                allTasks.push({
-                    id: item.id,
-                    text: item.querySelector('.content').innerText,
-                    listId: listId,
-                    isPriority: item.classList.contains('is-priority')
+            const listEl = document.getElementById(listId);
+            if (listEl) {
+                listEl.querySelectorAll('.task-item').forEach(item => {
+                    allTasks.push({
+                        id: item.id,
+                        text: item.querySelector('.content').innerText.trim(),
+                        listId: listId,
+                        isPriority: item.classList.contains('is-priority')
+                    });
                 });
-            });
+            }
         });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(allTasks));
     }
