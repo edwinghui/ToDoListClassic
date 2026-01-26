@@ -6,7 +6,6 @@
     <title>ToDoListClassic</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>">
-    
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
     <style>
@@ -15,10 +14,11 @@
             --border-color: #d1d1d1;
             --text-main: #333;
             --app-width: 450px;
+            --outlook-blue: #4a90e2;
         }
 
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
             margin: 0;
             background-color: #f0f0f0;
             display: flex;
@@ -38,7 +38,7 @@
         }
 
         .input-container {
-            padding: 12px;
+            padding: 8px;
             background: #fff;
             border-bottom: 1px solid var(--border-color);
             position: sticky;
@@ -48,19 +48,18 @@
 
         #task-input {
             width: 100%;
-            padding: 10px 14px;
+            padding: 6px 10px;
             border: 1px solid #ccc;
             box-sizing: border-box;
-            font-size: 14px;
+            font-size: 13px;
             outline: none;
-            border-radius: 4px;
         }
 
-        /* Collapsible Header Logic */
+        /* Tight Headers */
         .group-header {
             background-color: var(--header-bg);
-            padding: 8px 12px;
-            font-size: 11px;
+            padding: 3px 10px;
+            font-size: 10.5px;
             font-weight: bold;
             color: #444;
             display: flex;
@@ -73,57 +72,71 @@
 
         .group-header::before { 
             content: '◢'; 
-            font-size: 8px; 
-            margin-right: 8px; 
-            transition: transform 0.2s;
+            font-size: 7px; 
+            margin-right: 6px; 
+            transition: transform 0.1s;
         }
 
-        .collapsed .group-header::before {
-            transform: rotate(-90deg);
-        }
+        .collapsed .group-header::before { transform: rotate(-90deg); }
+        .collapsed .task-list { display: none; }
 
-        .collapsed .task-list {
-            display: none;
-        }
+        .task-list { min-height: 5px; background: #fff; }
 
-        .task-list { min-height: 10px; background: #fff; padding-bottom: 5px; }
-
+        /* Ultra-tight Task Items */
         .task-item {
             display: flex;
             align-items: center;
-            padding: 10px 12px;
+            padding: 4px 10px; /* Tighter padding */
             border-bottom: 1px solid #f2f2f2;
             background: white;
-            font-size: 13px;
+            font-size: 12px; /* Smaller font */
+            line-height: 1.2; /* Tighter line height */
             cursor: grab;
         }
 
         .task-item:active { cursor: grabbing; }
-        .task-item .content { flex-grow: 1; }
-        .task-item .checkbox { 
-            width: 14px; 
-            height: 14px; 
-            border: 1px solid #999; 
-            margin-right: 12px; 
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        
+        .task-item .content { 
+            flex-grow: 1; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
         }
 
+        /* Priority Red Style */
+        .task-item.is-priority .content {
+            color: #d9534f;
+            font-weight: bold;
+        }
+
+        .task-item .checkbox { 
+            width: 12px; 
+            height: 12px; 
+            border: 1px solid #999; 
+            margin-right: 10px; 
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        /* Priority Toggle Button */
+        .priority-btn {
+            font-size: 16px;
+            margin-left: 8px;
+            cursor: pointer;
+            opacity: 0.2;
+            transition: opacity 0.2s;
+            user-select: none;
+            line-height: 1;
+        }
+
+        .task-item:hover .priority-btn { opacity: 0.6; }
+        .task-item.is-priority .priority-btn { opacity: 1; color: #d9534f; }
+
         /* Completed Styles */
-        #completed .content {
-            text-decoration: line-through;
-            color: #888;
-        }
-        #completed .checkbox {
-            background-color: #4a90e2;
-            border-color: #4a90e2;
-        }
+        #completed .content { text-decoration: line-through; color: #aaa; }
+        #completed .checkbox { background-color: var(--outlook-blue); border-color: var(--outlook-blue); position: relative; }
         #completed .checkbox::after {
-            content: '✓';
-            color: white;
-            font-size: 10px;
+            content: '✓'; color: white; font-size: 9px; position: absolute; top: -1px; left: 1px;
         }
 
         @media (max-width: 500px) {
@@ -136,7 +149,7 @@
 
 <div id="app-container">
     <div class="input-container">
-        <input type="text" id="task-input" placeholder="Type a task and hit Enter...">
+        <input type="text" id="task-input" placeholder="Enter new task..." autocomplete="off">
     </div>
 
     <div class="section" id="sec-no-date">
@@ -169,51 +182,56 @@
     const input = document.getElementById('task-input');
     const listIds = ['no-date', 'today', 'tomorrow', 'next-week', 'completed'];
 
-    // Initialize Sortable on all lists
     listIds.forEach(id => {
         new Sortable(document.getElementById(id), {
             group: 'tasks',
-            animation: 150,
+            animation: 120,
             onEnd: () => saveToStorage()
         });
     });
 
     window.onload = () => {
-        const savedData = JSON.parse(localStorage.getItem('myTasksV2')) || [];
-        savedData.forEach(task => addTaskToUI(task.text, task.listId, task.id));
+        const savedData = JSON.parse(localStorage.getItem('ToDoListClassic_V3')) || [];
+        savedData.forEach(task => addTaskToUI(task.text, task.listId, task.id, task.isPriority));
     };
 
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && input.value.trim()) {
             const taskId = 'task-' + Date.now();
-            addTaskToUI(input.value.trim(), 'today', taskId);
+            addTaskToUI(input.value.trim(), 'today', taskId, false);
             input.value = '';
             saveToStorage();
         }
     });
 
-    function addTaskToUI(text, listId, taskId) {
+    function addTaskToUI(text, listId, taskId, isPriority) {
         const list = document.getElementById(listId);
         const item = document.createElement('div');
-        item.className = 'task-item';
+        item.className = 'task-item' + (isPriority ? ' is-priority' : '');
         item.id = taskId;
         
         item.innerHTML = `
             <div class="checkbox" onclick="handleCheck('${taskId}')"></div>
             <div class="content">${text}</div>
+            <div class="priority-btn" onclick="togglePriority('${taskId}')">!</div>
         `;
 
         list.appendChild(item);
     }
 
+    function togglePriority(taskId) {
+        const item = document.getElementById(taskId);
+        item.classList.toggle('is-priority');
+        saveToStorage();
+    }
+
     function handleCheck(taskId) {
         const item = document.getElementById(taskId);
         const currentListId = item.parentElement.id;
-        
         if (currentListId === 'completed') {
-            document.getElementById('today').appendChild(item); // Uncheck moves back to Today
+            document.getElementById('today').appendChild(item);
         } else {
-            document.getElementById('completed').appendChild(item); // Check moves to Completed
+            document.getElementById('completed').appendChild(item);
         }
         saveToStorage();
     }
@@ -229,13 +247,13 @@
                 allTasks.push({
                     id: item.id,
                     text: item.querySelector('.content').innerText,
-                    listId: listId
+                    listId: listId,
+                    isPriority: item.classList.contains('is-priority')
                 });
             });
         });
-        localStorage.setItem('myTasksV2', JSON.stringify(allTasks));
+        localStorage.setItem('ToDoListClassic_V3', JSON.stringify(allTasks));
     }
 </script>
-
 </body>
 </html>
