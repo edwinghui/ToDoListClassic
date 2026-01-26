@@ -3,18 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Task Flow</title>
+    <title>ToDoListClassic</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📋</text></svg>">
     
-    <link rel="manifest" href="data:application/manifest+json,{'name':'TaskFlow','short_name':'Tasks','start_url':'.','display':'standalone','background_color':'#ffffff','theme_color':'#f3f3f3'}">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
     <style>
         :root {
             --header-bg: #e1e1e1;
             --border-color: #d1d1d1;
             --text-main: #333;
-            --flag-red: #d9534f;
             --app-width: 450px;
         }
 
@@ -57,9 +56,10 @@
             border-radius: 4px;
         }
 
+        /* Collapsible Header Logic */
         .group-header {
             background-color: var(--header-bg);
-            padding: 6px 12px;
+            padding: 8px 12px;
             font-size: 11px;
             font-weight: bold;
             color: #444;
@@ -67,11 +67,26 @@
             align-items: center;
             border-bottom: 1px solid var(--border-color);
             text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
         }
 
-        .group-header::before { content: '◢'; font-size: 8px; margin-right: 8px; }
+        .group-header::before { 
+            content: '◢'; 
+            font-size: 8px; 
+            margin-right: 8px; 
+            transition: transform 0.2s;
+        }
 
-        .task-list { min-height: 30px; background: #fff; padding-bottom: 15px; }
+        .collapsed .group-header::before {
+            transform: rotate(-90deg);
+        }
+
+        .collapsed .task-list {
+            display: none;
+        }
+
+        .task-list { min-height: 10px; background: #fff; padding-bottom: 5px; }
 
         .task-item {
             display: flex;
@@ -85,11 +100,31 @@
 
         .task-item:active { cursor: grabbing; }
         .task-item .content { flex-grow: 1; }
-        .task-item .flag { color: var(--flag-red); font-size: 14px; margin-left: 10px; opacity: 0.8; }
-        .task-item .checkbox { width: 14px; height: 14px; border: 1px solid #999; margin-right: 12px; cursor: pointer; }
+        .task-item .checkbox { 
+            width: 14px; 
+            height: 14px; 
+            border: 1px solid #999; 
+            margin-right: 12px; 
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-        .dragging { opacity: 0.3; }
-        .drag-over { background-color: #f8f9fa !important; border-bottom: 2px solid #4a90e2; }
+        /* Completed Styles */
+        #completed .content {
+            text-decoration: line-through;
+            color: #888;
+        }
+        #completed .checkbox {
+            background-color: #4a90e2;
+            border-color: #4a90e2;
+        }
+        #completed .checkbox::after {
+            content: '✓';
+            color: white;
+            font-size: 10px;
+        }
 
         @media (max-width: 500px) {
             body { background-color: white; }
@@ -104,26 +139,47 @@
         <input type="text" id="task-input" placeholder="Type a task and hit Enter...">
     </div>
 
-    <div class="group-header">No Date</div>
-    <div class="task-list" id="no-date"></div>
+    <div class="section" id="sec-no-date">
+        <div class="group-header" onclick="toggleSection('sec-no-date')">No Date</div>
+        <div class="task-list" id="no-date"></div>
+    </div>
 
-    <div class="group-header">Today</div>
-    <div class="task-list" id="today"></div>
+    <div class="section" id="sec-today">
+        <div class="group-header" onclick="toggleSection('sec-today')">Today</div>
+        <div class="task-list" id="today"></div>
+    </div>
 
-    <div class="group-header">Tomorrow</div>
-    <div class="task-list" id="tomorrow"></div>
+    <div class="section" id="sec-tomorrow">
+        <div class="group-header" onclick="toggleSection('sec-tomorrow')">Tomorrow</div>
+        <div class="task-list" id="tomorrow"></div>
+    </div>
 
-    <div class="group-header">Next Week</div>
-    <div class="task-list" id="next-week"></div>
+    <div class="section" id="sec-next-week">
+        <div class="group-header" onclick="toggleSection('sec-next-week')">Next Week</div>
+        <div class="task-list" id="next-week"></div>
+    </div>
+
+    <div class="section" id="sec-completed">
+        <div class="group-header" onclick="toggleSection('sec-completed')">Completed</div>
+        <div class="task-list" id="completed"></div>
+    </div>
 </div>
 
 <script>
     const input = document.getElementById('task-input');
-    const lists = document.querySelectorAll('.task-list');
+    const listIds = ['no-date', 'today', 'tomorrow', 'next-week', 'completed'];
 
-    // Persistence: Load on start
+    // Initialize Sortable on all lists
+    listIds.forEach(id => {
+        new Sortable(document.getElementById(id), {
+            group: 'tasks',
+            animation: 150,
+            onEnd: () => saveToStorage()
+        });
+    });
+
     window.onload = () => {
-        const savedData = JSON.parse(localStorage.getItem('myTasks')) || [];
+        const savedData = JSON.parse(localStorage.getItem('myTasksV2')) || [];
         savedData.forEach(task => addTaskToUI(task.text, task.listId, task.id));
     };
 
@@ -140,60 +196,45 @@
         const list = document.getElementById(listId);
         const item = document.createElement('div');
         item.className = 'task-item';
-        item.draggable = true;
         item.id = taskId;
         
         item.innerHTML = `
-            <div class="checkbox" onclick="completeTask('${taskId}')"></div>
+            <div class="checkbox" onclick="handleCheck('${taskId}')"></div>
             <div class="content">${text}</div>
-            <div class="flag">🚩</div>
         `;
 
-        item.addEventListener('dragstart', (e) => {
-            item.classList.add('dragging');
-            e.dataTransfer.setData('text/plain', item.id);
-        });
-
-        item.addEventListener('dragend', () => item.classList.remove('dragging'));
         list.appendChild(item);
     }
 
-    function completeTask(taskId) {
-        document.getElementById(taskId).remove();
+    function handleCheck(taskId) {
+        const item = document.getElementById(taskId);
+        const currentListId = item.parentElement.id;
+        
+        if (currentListId === 'completed') {
+            document.getElementById('today').appendChild(item); // Uncheck moves back to Today
+        } else {
+            document.getElementById('completed').appendChild(item); // Check moves to Completed
+        }
         saveToStorage();
+    }
+
+    function toggleSection(sectionId) {
+        document.getElementById(sectionId).classList.toggle('collapsed');
     }
 
     function saveToStorage() {
         const allTasks = [];
-        lists.forEach(list => {
-            list.querySelectorAll('.task-item').forEach(item => {
+        listIds.forEach(listId => {
+            document.querySelectorAll(`#${listId} .task-item`).forEach(item => {
                 allTasks.push({
                     id: item.id,
                     text: item.querySelector('.content').innerText,
-                    listId: list.id
+                    listId: listId
                 });
             });
         });
-        localStorage.setItem('myTasks', JSON.stringify(allTasks));
+        localStorage.setItem('myTasksV2', JSON.stringify(allTasks));
     }
-
-    lists.forEach(list => {
-        list.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            list.classList.add('drag-over');
-        });
-        list.addEventListener('dragleave', () => list.classList.remove('drag-over'));
-        list.addEventListener('drop', (e) => {
-            e.preventDefault();
-            list.classList.remove('drag-over');
-            const id = e.dataTransfer.getData('text/plain');
-            const draggedElement = document.getElementById(id);
-            if (draggedElement) {
-                list.appendChild(draggedElement);
-                saveToStorage();
-            }
-        });
-    });
 </script>
 
 </body>
