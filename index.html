@@ -61,16 +61,30 @@
             position: sticky;
             top: 0;
             z-index: 100;
+            display: flex;
+            gap: 5px;
         }
 
         #task-input {
-            width: 100%;
+            flex-grow: 1;
             padding: 5px 10px;
             border: 1px solid #ccc;
             box-sizing: border-box;
             font-size: 13px;
             outline: none;
         }
+
+        .copy-all-btn {
+            background: #f8f8f8;
+            border: 1px solid #ccc;
+            font-size: 10px;
+            cursor: pointer;
+            padding: 0 8px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .copy-all-btn:hover { background: #eee; }
 
         .group-header {
             background-color: var(--header-bg);
@@ -118,7 +132,6 @@
             outline: none;
         }
 
-        /* Allow text wrap while editing so you can see the whole name */
         .task-item .content:focus {
             white-space: normal;
             background: #f9f9f9;
@@ -175,6 +188,7 @@
 <div id="app-container">
     <div class="input-container">
         <input type="text" id="task-input" placeholder="New task..." autocomplete="off">
+        <button class="copy-all-btn" onclick="copyAllTasks()">Copy All</button>
     </div>
 
     <div class="section" id="sec-no-date">
@@ -215,8 +229,8 @@
         new Sortable(document.getElementById(id), {
             group: 'tasks',
             animation: 100,
-            handle: '.task-item', // Dragging is handled by the item
-            filter: '.content', // Prevent dragging when clicking the editable text
+            handle: '.task-item',
+            filter: '.content',
             preventOnFilter: false,
             onEnd: () => saveToStorage()
         });
@@ -225,15 +239,31 @@
     window.onload = () => {
         const legacyData = JSON.parse(localStorage.getItem('ToDoListClassic_V4')) || JSON.parse(localStorage.getItem('ToDoListClassic_V3')) || [];
         const prodData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || legacyData;
-        
         prodData.forEach(task => addTaskToUI(task.text, task.listId, task.id, task.isPriority));
         saveToStorage(); 
     };
 
+    // Standard Enter key submission
     input.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && input.value.trim()) {
             const taskId = 'task-' + Date.now();
             addTaskToUI(input.value.trim(), 'today', taskId, false);
+            input.value = '';
+            saveToStorage();
+        }
+    });
+
+    // SMART PASTE: Recognizes multiple lines and creates separate tasks
+    input.addEventListener('paste', (e) => {
+        const pasteData = (e.clipboardData || window.clipboardData).getData('text');
+        const lines = pasteData.split(/\r?\n/).filter(line => line.trim() !== "");
+        
+        if (lines.length > 1) {
+            e.preventDefault(); // Stop the default single-line paste
+            lines.forEach((line, index) => {
+                const taskId = 'task-' + (Date.now() + index);
+                addTaskToUI(line.trim(), 'today', taskId, false);
+            });
             input.value = '';
             saveToStorage();
         }
@@ -244,8 +274,6 @@
         const item = document.createElement('div');
         item.className = 'task-item' + (isPriority ? ' is-priority' : '');
         item.id = taskId;
-        
-        // added contenteditable="true" and onblur="saveToStorage()"
         item.innerHTML = `
             <div class="checkbox" onclick="handleCheck('${taskId}')"></div>
             <div class="content" contenteditable="true" onblur="saveToStorage()" onkeypress="handleRenameEnter(event)">${text}</div>
@@ -254,11 +282,10 @@
         list.appendChild(item);
     }
 
-    // Prevents adding a new line when pressing Enter while editing a task
     function handleRenameEnter(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
-            e.target.blur(); // Trigger the save via blur
+            e.target.blur();
         }
     }
 
@@ -277,6 +304,31 @@
             document.getElementById('completed').appendChild(item);
         }
         saveToStorage();
+    }
+
+    // COPY ALL: Grabs all active tasks (skips completed) and copies to clipboard
+    function copyAllTasks() {
+        const activeLists = ['no-date', 'today', 'tomorrow', 'next-week'];
+        let textToCopy = "";
+
+        activeLists.forEach(listId => {
+            const tasks = document.querySelectorAll(`#${listId} .content`);
+            tasks.forEach(task => {
+                textToCopy += task.innerText.trim() + "\n";
+            });
+        });
+
+        if (textToCopy.trim() === "") {
+            alert("No tasks to copy!");
+            return;
+        }
+
+        navigator.clipboard.writeText(textToCopy.trim()).then(() => {
+            const btn = document.querySelector('.copy-all-btn');
+            const originalText = btn.innerText;
+            btn.innerText = "Copied!";
+            setTimeout(() => btn.innerText = originalText, 1500);
+        });
     }
 
     function clearCompleted(e) {
